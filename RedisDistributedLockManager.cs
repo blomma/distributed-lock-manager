@@ -1,5 +1,6 @@
 namespace RedisDistributedLockManager {
     using System;
+    using System.Threading.Tasks;
     using StackExchange.Redis;
 
     public class RedisDistributedLock {
@@ -17,7 +18,7 @@ namespace RedisDistributedLockManager {
     }
 
     public class RedisDistributedLockManager : IDisposable {
-        private readonly ConnectionMultiplexer connectionMultiplexer;
+        private readonly IConnectionMultiplexer connectionMultiplexer;
         private RedisDistributedLock redisDistributedLock;
 
         public RedisDistributedLockManager(string connectionString) {
@@ -25,7 +26,7 @@ namespace RedisDistributedLockManager {
             connectionMultiplexer = ConnectionMultiplexer.Connect(options.ToString());
         }
 
-        public RedisDistributedLockManager(ConnectionMultiplexer connectionMultiplexer) {
+        public RedisDistributedLockManager(IConnectionMultiplexer connectionMultiplexer) {
             this.connectionMultiplexer = connectionMultiplexer;
         }
 
@@ -38,14 +39,30 @@ namespace RedisDistributedLockManager {
         }
 
         private const String UnlockScript = @"
-                if redis.call(""get"",KEYS[1]) == ARGV[1] then
-                    return redis.call(""del"",KEYS[1])
-                else
-                    return 0
-                end";
+            if redis.call(""get"",KEYS[1]) == ARGV[1] then
+                return redis.call(""del"",KEYS[1])
+            else
+                return 0
+            end";
 
         private byte[] CreateUniqueLockId() {
             return Guid.NewGuid().ToByteArray();
+        }
+
+        public async Task<bool> LockAsync(string key, TimeSpan ttl) {
+            if (!IsConnected()) {
+                return false;
+            }
+
+            var value = CreateUniqueLockId();
+            var result = await connectionMultiplexer.GetDatabase().StringSetAsync(key, value, ttl, When.NotExists);
+            if (!result) {
+                return false;
+            }
+
+            redisDistributedLock = new RedisDistributedLock(key, value, ttl);
+
+            return true;
         }
 
         public bool Lock(string key, TimeSpan ttl) {
@@ -62,6 +79,17 @@ namespace RedisDistributedLockManager {
             redisDistributedLock = new RedisDistributedLock(key, value, ttl);
 
             return true;
+        }
+
+        public Task UnlockAsync() {
+            RedisKey[] key = { redisDistributedLock.Key };
+            RedisValue[] values = { redisDistributedLock.Value };
+
+            return connectionMultiplexer.GetDatabase().ScriptEvaluateAsync(
+                UnlockScript,
+                key,
+                values
+            );
         }
 
         public void Unlock() {
