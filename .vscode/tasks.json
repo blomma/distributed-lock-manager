@@ -7,7 +7,7 @@
             "type": "process",
             "args": [
                 "build",
-                "${workspaceFolder}/RLock.csproj"
+                "${workspaceFolder}/DistributedLockManager.csproj"
             ],
             "problemMatcher": "$tsc"
         },
@@ -17,7 +17,7 @@
             "type": "process",
             "args": [
                 "publish",
-                "${workspaceFolder}/RLock.csproj"
+                "${workspaceFolder}/DistributedLockManager.csproj"
             ],
             "problemMatcher": "$tsc"
         },
@@ -28,7 +28,7 @@
             "args": [
                 "watch",
                 "run",
-                "${workspaceFolder}/RLock.csproj"
+                "${workspaceFolder}/DistributedLockManager.csproj"
             ],
             "problemMatcher": "$tsc"
         }

@@ -1,35 +1,43 @@
 using System;
 using StackExchange.Redis;
 
-public class Lock {
-
+public class RedisDistributedLock
+{
     public RedisKey Key { get; private set; }
 
     public RedisValue Value { get; private set; }
 
     public TimeSpan Validity { get; private set; }
 
-    public Lock(RedisKey key, RedisValue value, TimeSpan validity) {
+    public RedisDistributedLock(RedisKey key, RedisValue value, TimeSpan validity)
+    {
         Key = key;
         Value = value;
         Validity = validity;
     }
 }
 
-public class SharedServiceLock {
+public class RedisDistributedLockManager
+{
     private readonly ConnectionMultiplexer redis;
 
-    public SharedServiceLock(string connectionString) {
-        try {
+    public RedisDistributedLockManager(string connectionString)
+    {
+        try
+        {
             var options = ConfigurationOptions.Parse(connectionString);
             redis = ConnectionMultiplexer.Connect(options.ToString());
-        } catch (Exception) {
+        }
+        catch (Exception)
+        {
             // logger.Error(ex, "Failed to connect to Redis");
         }
     }
 
-    private bool IsConnected() {
-        if (redis == null) {
+    private bool IsConnected()
+    {
+        if (redis == null)
+        {
             return false;
         }
 
@@ -43,27 +51,32 @@ public class SharedServiceLock {
                 return 0
             end";
 
-    private byte[] CreateUniqueLockId() {
+    private byte[] CreateUniqueLockId()
+    {
         return Guid.NewGuid().ToByteArray();
     }
 
-    public (bool success, Lock l) Lock(string key, TimeSpan ttl) {
-        if (!IsConnected()) {
-            return (success: false, l: null);
+    public (bool success, RedisDistributedLock redisDistributedLock) Lock(string key, TimeSpan ttl)
+    {
+        if (!IsConnected())
+        {
+            return (success: false, redisDistributedLock: null);
         }
 
         var value = CreateUniqueLockId();
         var result = redis.GetDatabase().StringSet(key, value, ttl, When.NotExists);
-        if (!result) {
-            return (success: false, l: null);
+        if (!result)
+        {
+            return (success: false, redisDistributedLock: null);
         }
 
-        return (success: true, l: new Lock(key, value, ttl));
+        return (success: true, redisDistributedLock: new RedisDistributedLock(key, value, ttl));
     }
 
-    public void Unlock(Lock l) {
-        RedisKey[] key = { l.Key };
-        RedisValue[] values = { l.Value };
+    public void Unlock(RedisDistributedLock redisDistributedLock)
+    {
+        RedisKey[] key = { redisDistributedLock.Key };
+        RedisValue[] values = { redisDistributedLock.Value };
         var result = redis.GetDatabase().ScriptEvaluate(
             UnlockScript,
             key,

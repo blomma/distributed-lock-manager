@@ -1,16 +1,23 @@
 ﻿using System;
 
-namespace RLock {
-    class Program {
-        static void Main(string[] args) {
-            var s = new SharedServiceLock("");
+namespace RLock
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            var s = new RedisDistributedLockManager("");
             var result = s.Lock("", new TimeSpan(0, 40, 0));
-            if (!result.success) {
+            if (!result.success)
+            {
                 return;
             }
 
             // Do BIZ
-            s.Unlock(result.l);
+
+
+            // Unlock
+            s.Unlock(result.redisDistributedLock);
         }
     }
 }
