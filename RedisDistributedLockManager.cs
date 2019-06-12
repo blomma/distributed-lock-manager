@@ -28,7 +28,7 @@ public class RedisDistributedLockManager
             var options = ConfigurationOptions.Parse(connectionString);
             redis = ConnectionMultiplexer.Connect(options.ToString());
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             // logger.Error(ex, "Failed to connect to Redis");
         }
